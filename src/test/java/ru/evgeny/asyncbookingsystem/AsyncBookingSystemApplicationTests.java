@@ -5,6 +5,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import ru.evgeny.asyncbookingsystem.repository.BookingRepository;
 import ru.evgeny.asyncbookingsystem.repository.BookingRequestRepository;
+import ru.evgeny.asyncbookingsystem.repository.ProcessedMessageRepository;
 import ru.evgeny.asyncbookingsystem.repository.ResourceRepository;
 
 @SpringBootTest(properties = {
@@ -24,6 +25,9 @@ class AsyncBookingSystemApplicationTests {
 
     @MockitoBean
     private BookingRequestRepository bookingRequestRepository;
+
+    @MockitoBean
+    private ProcessedMessageRepository processedMessageRepository;
 
     @Test
     void contextLoads() {

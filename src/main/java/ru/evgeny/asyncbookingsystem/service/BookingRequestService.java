@@ -1,6 +1,7 @@
 package ru.evgeny.asyncbookingsystem.service;
 
 import java.time.LocalDateTime;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,8 @@ import ru.evgeny.asyncbookingsystem.entity.BookingRequestStatus;
 import ru.evgeny.asyncbookingsystem.entity.ResourceEntity;
 import ru.evgeny.asyncbookingsystem.exception.BookingRequestNotFoundException;
 import ru.evgeny.asyncbookingsystem.mapper.BookingRequestMapper;
+import ru.evgeny.asyncbookingsystem.rabbit.BookingEvent;
+import ru.evgeny.asyncbookingsystem.rabbit.BookingEventProducer;
 import ru.evgeny.asyncbookingsystem.repository.BookingRequestRepository;
 
 @Service
@@ -21,6 +24,7 @@ public class BookingRequestService {
     private final BookingRequestRepository bookingRequestRepository;
     private final ResourceService resourceService;
     private final BookingRequestMapper bookingRequestMapper;
+    private final BookingEventProducer bookingEventProducer;
 
     @Transactional
     public BookingRequestResponse createBookingRequest(AsyncBookingRequest request) {
@@ -46,6 +50,7 @@ public class BookingRequestService {
             BookingRequestEntity savedBookingRequest = bookingRequestRepository.save(
                     bookingRequestMapper.toEntity(request, resource, BookingRequestStatus.PENDING, now)
             );
+            publishBookingRequestedEvent(savedBookingRequest);
 
             return bookingRequestMapper.toResponse(savedBookingRequest);
         } catch (DataIntegrityViolationException exception) {
@@ -53,5 +58,18 @@ public class BookingRequestService {
                     .map(bookingRequestMapper::toResponse)
                     .orElseThrow(() -> exception);
         }
+    }
+
+    private void publishBookingRequestedEvent(BookingRequestEntity bookingRequest) {
+        bookingEventProducer.publishBookingRequested(
+                BookingEvent.builder()
+                        .messageId(UUID.randomUUID().toString())
+                        .requestId(bookingRequest.getRequestId())
+                        .userId(bookingRequest.getUserId())
+                        .resourceId(bookingRequest.getResource().getId())
+                        .startTime(bookingRequest.getStartTime())
+                        .endTime(bookingRequest.getEndTime())
+                        .build()
+        );
     }
 }

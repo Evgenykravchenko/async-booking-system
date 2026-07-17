@@ -41,6 +41,19 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(BookingRequestPayloadMismatchException.class)
+    public ResponseEntity<ErrorResponse> handleBookingRequestPayloadMismatch(
+            BookingRequestPayloadMismatchException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(buildErrorResponse(
+                        HttpStatus.CONFLICT,
+                        exception.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
     @ExceptionHandler(SlotAlreadyBookedException.class)
     public ResponseEntity<BookingResponse> handleSlotAlreadyBooked(SlotAlreadyBookedException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

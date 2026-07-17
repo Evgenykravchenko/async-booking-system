@@ -14,6 +14,7 @@ import ru.evgeny.asyncbookingsystem.entity.BookingRequestEntity;
 import ru.evgeny.asyncbookingsystem.entity.BookingRequestStatus;
 import ru.evgeny.asyncbookingsystem.entity.ResourceEntity;
 import ru.evgeny.asyncbookingsystem.exception.BookingRequestNotFoundException;
+import ru.evgeny.asyncbookingsystem.exception.BookingRequestPayloadMismatchException;
 import ru.evgeny.asyncbookingsystem.mapper.BookingRequestMapper;
 import ru.evgeny.asyncbookingsystem.rabbit.BookingEvent;
 import ru.evgeny.asyncbookingsystem.rabbit.BookingEventProducer;
@@ -24,6 +25,7 @@ import ru.evgeny.asyncbookingsystem.repository.BookingRequestRepository;
 public class BookingRequestService {
 
     private final BookingRequestRepository bookingRequestRepository;
+    private final BookingRequestLookupService bookingRequestLookupService;
     private final ResourceService resourceService;
     private final BookingRequestMapper bookingRequestMapper;
     private final BookingEventProducer bookingEventProducer;
@@ -33,7 +35,7 @@ public class BookingRequestService {
         String requestId = request.requestId().trim();
 
         return bookingRequestRepository.findByRequestId(requestId)
-                .map(bookingRequestMapper::toResponse)
+                .map(existingRequest -> resolveExistingRequest(existingRequest, request, requestId))
                 .orElseGet(() -> createNewBookingRequest(request, requestId));
     }
 
@@ -56,10 +58,29 @@ public class BookingRequestService {
 
             return bookingRequestMapper.toResponse(savedBookingRequest);
         } catch (DataIntegrityViolationException exception) {
-            return bookingRequestRepository.findByRequestId(requestId)
-                    .map(bookingRequestMapper::toResponse)
+            return bookingRequestLookupService.findByRequestId(requestId)
+                    .map(existingRequest -> resolveExistingRequest(existingRequest, request, requestId))
                     .orElseThrow(() -> exception);
         }
+    }
+
+    private BookingRequestResponse resolveExistingRequest(
+            BookingRequestEntity existingRequest,
+            AsyncBookingRequest request,
+            String requestId
+    ) {
+        if (!isSamePayload(existingRequest, request)) {
+            throw new BookingRequestPayloadMismatchException(requestId);
+        }
+
+        return bookingRequestMapper.toResponse(existingRequest);
+    }
+
+    private boolean isSamePayload(BookingRequestEntity existingRequest, AsyncBookingRequest request) {
+        return existingRequest.getUserId().equals(request.userId())
+                && existingRequest.getResource().getId().equals(request.resourceId())
+                && existingRequest.getStartTime().equals(request.startTime())
+                && existingRequest.getEndTime().equals(request.endTime());
     }
 
     private void publishBookingRequestedEvent(BookingRequestEntity bookingRequest) {

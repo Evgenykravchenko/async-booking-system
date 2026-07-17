@@ -3,12 +3,12 @@ package ru.evgeny.asyncbookingsystem.service;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 import ru.evgeny.asyncbookingsystem.dto.CreateResourceRequest;
 import ru.evgeny.asyncbookingsystem.dto.ResourceResponse;
+import ru.evgeny.asyncbookingsystem.entity.ResourceEntity;
+import ru.evgeny.asyncbookingsystem.exception.ResourceNotFoundException;
 import ru.evgeny.asyncbookingsystem.mapper.ResourceMapper;
 import ru.evgeny.asyncbookingsystem.repository.ResourceRepository;
 
@@ -34,11 +34,12 @@ public class ResourceService {
 
     @Transactional(readOnly = true)
     public ResourceResponse getResourceById(Long id) {
+        return resourceMapper.toResponse(getResourceEntityById(id));
+    }
+
+    @Transactional(readOnly = true)
+    public ResourceEntity getResourceEntityById(Long id) {
         return resourceRepository.findById(id)
-                .map(resourceMapper::toResponse)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Resource with id " + id + " was not found"
-                ));
+                .orElseThrow(() -> new ResourceNotFoundException(id));
     }
 }

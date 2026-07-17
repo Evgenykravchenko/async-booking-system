@@ -6,6 +6,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import ru.evgeny.asyncbookingsystem.dto.AsyncBookingRequest;
 import ru.evgeny.asyncbookingsystem.dto.BookingRequestResponse;
 import ru.evgeny.asyncbookingsystem.entity.BookingRequestEntity;
@@ -61,15 +63,25 @@ public class BookingRequestService {
     }
 
     private void publishBookingRequestedEvent(BookingRequestEntity bookingRequest) {
-        bookingEventProducer.publishBookingRequested(
-                BookingEvent.builder()
-                        .messageId(UUID.randomUUID().toString())
-                        .requestId(bookingRequest.getRequestId())
-                        .userId(bookingRequest.getUserId())
-                        .resourceId(bookingRequest.getResource().getId())
-                        .startTime(bookingRequest.getStartTime())
-                        .endTime(bookingRequest.getEndTime())
-                        .build()
-        );
+        BookingEvent bookingEvent = BookingEvent.builder()
+                .messageId(UUID.randomUUID().toString())
+                .requestId(bookingRequest.getRequestId())
+                .userId(bookingRequest.getUserId())
+                .resourceId(bookingRequest.getResource().getId())
+                .startTime(bookingRequest.getStartTime())
+                .endTime(bookingRequest.getEndTime())
+                .build();
+
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            bookingEventProducer.publishBookingRequested(bookingEvent);
+            return;
+        }
+
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                bookingEventProducer.publishBookingRequested(bookingEvent);
+            }
+        });
     }
 }

@@ -3,8 +3,8 @@ package ru.evgeny.asyncbookingsystem.service;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import ru.evgeny.asyncbookingsystem.dto.CreateBookingRequest;
+import ru.evgeny.asyncbookingsystem.exception.RetryableBookingProcessingException;
 import ru.evgeny.asyncbookingsystem.exception.SlotAlreadyBookedException;
 import ru.evgeny.asyncbookingsystem.rabbit.BookingEvent;
 
@@ -18,10 +18,10 @@ public class AsyncBookingProcessingService {
     private static final String UNEXPECTED_ERROR_REASON = "Unexpected booking processing error";
 
     private final BookingRequestLifecycleService bookingRequestLifecycleService;
-    private final BookingService bookingService;
+    private final AsyncBookingFinalizationService asyncBookingFinalizationService;
+    private final AsyncBookingAttemptService asyncBookingAttemptService;
     private final ProcessedMessageService processedMessageService;
 
-    @Transactional
     public void process(BookingEvent bookingEvent) {
         String requestId = bookingEvent.getRequestId();
         String messageId = bookingEvent.getMessageId();
@@ -41,19 +41,27 @@ public class AsyncBookingProcessingService {
         bookingRequestLifecycleService.markProcessing(requestId);
 
         try {
-            bookingService.createBooking(buildCreateBookingRequest(bookingEvent));
-            bookingRequestLifecycleService.markBooked(requestId);
-            processedMessageService.markProcessed(messageId, CONSUMER_NAME);
+            failForRetryScenario(requestId);
+            asyncBookingAttemptService.createBooking(buildCreateBookingRequest(bookingEvent));
+            asyncBookingFinalizationService.markBooked(requestId, messageId, CONSUMER_NAME);
         } catch (SlotAlreadyBookedException exception) {
-            bookingRequestLifecycleService.markRejected(requestId, SLOT_ALREADY_BOOKED_REASON);
-            processedMessageService.markProcessed(messageId, CONSUMER_NAME);
+            asyncBookingFinalizationService.markRejected(
+                    requestId,
+                    SLOT_ALREADY_BOOKED_REASON,
+                    messageId,
+                    CONSUMER_NAME
+            );
             log.info("Booking request rejected because slot is already booked. requestId={}, messageId={}",
                     requestId, messageId);
+        } catch (RetryableBookingProcessingException exception) {
+            throw exception;
         } catch (RuntimeException exception) {
-            bookingRequestLifecycleService.markFailed(requestId, resolveFailureReason(exception));
-            log.error("Booking request processing failed. requestId={}, messageId={}",
-                    requestId, messageId, exception);
+            throw new RetryableBookingProcessingException(resolveFailureReason(exception), exception);
         }
+    }
+
+    public void markFailed(String requestId, String failureReason) {
+        asyncBookingFinalizationService.markFailed(requestId, failureReason);
     }
 
     private CreateBookingRequest buildCreateBookingRequest(BookingEvent bookingEvent) {
@@ -72,5 +80,11 @@ public class AsyncBookingProcessingService {
         }
 
         return message;
+    }
+
+    private void failForRetryScenario(String requestId) {
+        if (requestId.toLowerCase().contains("fail")) {
+            throw new RetryableBookingProcessingException("Simulated technical failure");
+        }
     }
 }

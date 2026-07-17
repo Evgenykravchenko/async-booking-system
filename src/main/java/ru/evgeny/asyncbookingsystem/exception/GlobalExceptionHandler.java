@@ -28,6 +28,19 @@ public class GlobalExceptionHandler {
                 ));
     }
 
+    @ExceptionHandler(BookingRequestNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleBookingRequestNotFound(
+            BookingRequestNotFoundException exception,
+            HttpServletRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(buildErrorResponse(
+                        HttpStatus.NOT_FOUND,
+                        exception.getMessage(),
+                        request.getRequestURI()
+                ));
+    }
+
     @ExceptionHandler(SlotAlreadyBookedException.class)
     public ResponseEntity<BookingResponse> handleSlotAlreadyBooked(SlotAlreadyBookedException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT)

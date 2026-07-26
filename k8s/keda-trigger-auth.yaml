@@ -1,0 +1,12 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: booking-worker-rabbitmq-auth
+spec:
+  secretTargetRef:
+    - parameter: username
+      name: async-booking-system-secret
+      key: RABBITMQ_USERNAME
+    - parameter: password
+      name: async-booking-system-secret
+      key: RABBITMQ_PASSWORD

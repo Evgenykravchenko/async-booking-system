@@ -1,0 +1,22 @@
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: booking-worker-scaler
+spec:
+  scaleTargetRef:
+    name: booking-worker
+  pollingInterval: 5
+  cooldownPeriod: 30
+  minReplicaCount: 0
+  maxReplicaCount: 5
+  triggers:
+    - type: rabbitmq
+      metadata:
+        hostFromEnv: RABBITMQ_MANAGEMENT_HOST
+        protocol: http
+        queueName: booking.request.queue
+        mode: QueueLength
+        value: "10"
+        activationValue: "1"
+      authenticationRef:
+        name: booking-worker-rabbitmq-auth

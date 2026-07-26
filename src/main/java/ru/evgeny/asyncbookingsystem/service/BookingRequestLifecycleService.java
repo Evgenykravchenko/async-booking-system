@@ -21,8 +21,8 @@ public class BookingRequestLifecycleService {
     }
 
     @Transactional
-    public void markBooked(String requestId) {
-        updateStatus(requestId, BookingRequestStatus.BOOKED, null);
+    public BookingRequestEntity markBooked(String requestId) {
+        return updateStatus(requestId, BookingRequestStatus.BOOKED, null);
     }
 
     @Transactional
@@ -40,12 +40,13 @@ public class BookingRequestLifecycleService {
         return bookingRequestRepository.findByRequestId(requestId).isPresent();
     }
 
-    private void updateStatus(String requestId, BookingRequestStatus status, String failureReason) {
+    private BookingRequestEntity updateStatus(String requestId, BookingRequestStatus status, String failureReason) {
         BookingRequestEntity bookingRequest = bookingRequestRepository.findByRequestId(requestId)
                 .orElseThrow(() -> new BookingRequestNotFoundException(requestId));
 
         bookingRequest.setStatus(status);
         bookingRequest.setFailureReason(failureReason);
         bookingRequest.setUpdatedAt(LocalDateTime.now());
+        return bookingRequest;
     }
 }

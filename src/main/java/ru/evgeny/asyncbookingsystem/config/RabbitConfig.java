@@ -19,9 +19,11 @@ public class RabbitConfig {
     public static final String BOOKING_REQUEST_QUEUE = "booking.request.queue";
     public static final String BOOKING_RETRY_QUEUE = "booking.retry.queue";
     public static final String BOOKING_DLQ = "booking.dlq";
+    public static final String BOOKING_NOTIFICATION_QUEUE = "booking.notification.queue";
     public static final String BOOKING_REQUESTED_ROUTING_KEY = "booking.requested";
     public static final String BOOKING_RETRY_ROUTING_KEY = "booking.retry";
     public static final String BOOKING_FAILED_ROUTING_KEY = "booking.failed";
+    public static final String BOOKING_CONFIRMED_ROUTING_KEY = "booking.confirmed";
     public static final String RETRY_ATTEMPT_HEADER = "x-retry-attempt";
     public static final long BOOKING_RETRY_TTL_MILLIS = 2_000L;
     public static final int BOOKING_MAX_RETRY_ATTEMPTS = 3;
@@ -66,6 +68,11 @@ public class RabbitConfig {
     }
 
     @Bean
+    public Queue bookingNotificationQueue() {
+        return new Queue(BOOKING_NOTIFICATION_QUEUE, true);
+    }
+
+    @Bean
     public Binding bookingRequestBinding(Queue bookingRequestQueue, DirectExchange bookingExchange) {
         return BindingBuilder.bind(bookingRequestQueue)
                 .to(bookingExchange)
@@ -84,6 +91,13 @@ public class RabbitConfig {
         return BindingBuilder.bind(bookingDlq)
                 .to(bookingExchange)
                 .with(BOOKING_FAILED_ROUTING_KEY);
+    }
+
+    @Bean
+    public Binding bookingNotificationBinding(Queue bookingNotificationQueue, DirectExchange bookingExchange) {
+        return BindingBuilder.bind(bookingNotificationQueue)
+                .to(bookingExchange)
+                .with(BOOKING_CONFIRMED_ROUTING_KEY);
     }
 
     @Bean

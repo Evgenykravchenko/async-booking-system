@@ -9,5 +9,5 @@ data:
   DB_URL: "jdbc:postgresql://postgres:5432/booking_db"
   RABBITMQ_HOST: "rabbitmq"
   RABBITMQ_PORT: "5672"
-  RABBITMQ_MANAGEMENT_HOST: "http://rabbitmq:15672"
+  RABBITMQ_MANAGEMENT_HOST: "http://rabbitmq.default.svc.cluster.local:15672"
   APP_PORT: "8080"
